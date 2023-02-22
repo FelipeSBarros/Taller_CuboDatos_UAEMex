@@ -1,0 +1,593 @@
+---
+title: "Manejando cubo de datos ráster en R<br><br>"
+subtitle: ""
+author: "Felipe Sodré M. Barros <br>Instituto Superior Antonio Ruiz de Montoya  <br>Facultad de Ciencias Forestales de la Universidad Nacional de Misiones <br> Argentina <br><br> felipesbarros.github.io"
+date: "<br> 28/11/2022"
+output:
+  xaringan::moon_reader:
+    css: [metropolis]
+    lib_dir: libs
+    nature:
+      highlightStyle: rainbow
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+background-image: url(./img/UAEMex.png), url(./img/FacGeografía.jpeg), url(./img/GeoLIBERO.png)
+background-size: 200px, 300px, 280px
+background-position: 00% 50%, 50% 50%, 95% 50%
+
+class: center
+
+# Manejando cubo de datos ráster en R
+
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE, encoding = "UTF-8")
+```
+
+# Manejando cubo de datos ráster
+
+## Contenido:
+
+--
+
+### 1. Contextualización:
+
+### 2. Por qué cubo de datos?
+
+### 3. Manejando Cubo de datos
+
+### 4. Cubo de datos ráster
+
+### 5. Cubo de datos vectorial
+
+### 6. Creando un cubo de datos raster
+
+### 7. Para estar atento
+
+### Referencias y contactos
+
+---
+
+background-image: url(./img/EngolindoFumaca.png)
+background-size: 950px
+background-position: 10% 0%
+
+class: inverse, center
+
+# 1. Contextualización
+
+---
+
+# 1.1 "Engolindo Fumaça"
+
+Proyecto de **periodísmo de datos** que buscó **identificar los efectos de los incendios forestales en el agravamiento de los casos de COVID19** en la Amazonia brasileña;
+[Publicaciones](https://infoamazonia.org/project/engolindo-fumaca/)  
+
+**Desafíos:**
+* identificar patrón espacio-temporal de los incendios / **modelos espaciales** de materiales particulados (pm<2.5ug);
+* identificar municípios más afectados/expuestos a dichos materales;
+* brindar conocimientos para la producción de reportajes periodísticos;
+
+--
+
+```{r, out.width = "30%", echo=FALSE}
+knitr::include_graphics("https://media.giphy.com/media/wZnReyIOKg94mgokn5/giphy.gif")
+```
+
+---
+
+class: inverse, middle, center
+
+# 2. Por qué cubo de datos?
+
+---
+
+# 2. Por qué cubo de datos?
+
+<br>
+El paquete `raster` ([Hijmans 2022a](https://rspatial.org/raster/)) ha sido el dominante en el manejo de datos ráster en R. Es sin duda poderoso, flexible y escalable.
+<br>
+
+--
+
+Tanto en el paquete `raster` cuanto en su secesor `terra` ([Hijmans 2022b](https://rspatial.org/terra/)), la estructura (o modelo de dato) raster es una malla regular 2D (o un conjunto del mismo tipo - “raster stack”).
+<br>
+--
+Acorde a [Pebesma & Bivand](https://r-spatial.org/book/) se trata de la visión clásica de SIG:
+
+> "where the world is modelled as a set of layers, each representing a different theme."
+
+<br>
+--
+Dichos autores llaman la atención al hecho de que actualmente tenemos acceso a datos poducidos en tiempo real (dinámicos) y nos forza a trabajar con el **parámetro  temporal** de los rasters (y raster stack) :: **cubo de datos**.
+<br>
+--
+<br>
+Aunque muchos se lo crean, un `raster stack` no refleja esa condición (espacio-temporal).
+
+---
+
+class: inverse
+
+background-image: url(./img/cube1.png), url(./img/cube2.png)
+background-size: 400px, 600px
+background-position: 0% 0%, 95% 95%
+
+---
+
+class: inverse
+
+background-image: url(http://brazildatacube.org/wp-content/uploads/2020/12/artigo-brazil-data-cube-inpe-1.jpg)
+background-size: 800px
+background-position: 50% 50%
+
+# Disclaimer:
+
+---
+
+# 2.1 La extensión NetCDF
+
+La estructura de datos más utitizada para almacenar cubos de datos (y no solo), es `NetCDF`, que basicamente se caracteriza por:
+
+> “binary data files that are portable across platforms and include metadata information in addition to the data sets.”
+
+*Traducción*:  
+> “ser un archivo de dato binario indenpendiende de la plataforma computacional que inluye metadatos más allá del conjunto de datos.”
+
+---
+
+# 2.2 El paquete stars
+
+El paquete [`stars`](https://cran.r-project.org/web/packages/stars/index.html) nasce para justamente permitir la *creacción*, *carga* y *manipulación* de cubo de datos *vectoriales* y *raster*.
+
+Además, nos permite:  
+* diferenciar `atributos` de las `dimensiones`  de los datos (espaciales / **temporal**);
+* disempeño en los procesamientos;
+* integración con `sf`, `raster` y `GDAL`;
+* uso de matrices no regulares (*rotated*, *sheared*, *rectilinear* y *curvilinear*);
+* sigue el princípio "tidyverse";
+
+---
+
+class: inverse, center
+
+# 3. Manos a la obra:
+
+---
+background-image: url(https://dplyr.tidyverse.org/logo.png)
+background-size: 100px
+background-position: 95% 0%
+
+# 3.1 Cargandos los paquetes necesarios
+
+[`dplyr`](https://dplyr.tidyverse.org/) es un paquete que nos facilita la manipulación de datos;  
+<br>
+<br>
+<br>
+[`stars`](https://cran.r-project.org/web/packages/stars/index.html) es el paquete que vamos a ocupar para cargar y manipular los cubos de datos;
+<br>
+<br>
+
+```{r, warning=FALSE, message=FALSE}
+#install.packages("stars")
+#install.packages("dplyr")
+library(stars)
+library(dplyr)
+```
+
+---
+
+# 3.2 Cargando los datos
+
+```{r, warning=FALSE}
+# Estados (provincias) de amazonia
+uf <- readRDS('./data/tidy/uf.rds')
+
+# cubo de datos material particulado < 2.5
+(tseries <- read_stars("./data/CAMS/pm25_daily_mean_2020.nc"))
+```
+
+---
+
+# 3.3 Entendiendo la clase stars
+
+Cada dimensión tiene un nombre;
+
+Las dimensiones presentan los siguientes campos:
+
+| **field** | **significado** |
+|:---:|:---:|
+| from | indice de origen (1) |
+| to | index final (dim(x)[i]) |
+| offset | el valor inicial para dicha dimensión (pixel boundary), si regular |
+| delta | el valor de cambio de la dimensión, si regular |
+| refsys | el sistema de referencia (proj4string, POSIXct, etc) |
+| point | verdadero/falso; informa cuando el pixel se refiere a un punto |
+| values | secuencia de valores para la dimensión, si irregular |
+
+---
+
+# Al respecto de los datos
+
+Los datos que vamos a cargar ya fueron tratados y organizados: Los datos de las provincias fueron descargados usando [geobr](https://github.com/ipeaGIT/geobr) y filtrado por aquellos que hacen parte de la Amazonia brasileña ("Amazonia Legal");
+
+Los modelos de material particulado fino (< 2.5µg) fueron descargados del "[Copernicus Atmospheric Monitoring Service (CAMS)](https://atmosphere.copernicus.eu/charts/cams)" para todas las nueve horas de todos los días de 2020 y, para no manejarmos un conjunto de datos tan grande, vamos a trabajar con el valor medio diário.
+
+---
+
+# Para que sepan...
+
+El paquete `stars` permite cargar los datos a partir de dos funcciones: `read_ncdf` and `read_stars`, siendo el ultimo se lo hace ocupando `GDAL`.
+
+---
+
+# Haciendo algunos ajustes basicos
+
+```{r}
+sf::st_crs(tseries) <- st_crs(uf)
+names(tseries) <- "ppm < 2.5"
+tseries
+```
+
+---
+
+# Identificando la dimensión "time"
+
+```{r}
+st_get_dimension_values(tseries, "time")
+```
+
+---
+
+background-image: url(https://i.gifer.com/Fudg.gif)
+background-size: 100px
+background-position: 95% 22%
+
+# 4. Cubo de datos ráster
+
+Ya que estamos trabajando con la dimensión tiempo, es más que natual necesitar seleccionar una fecha o un rango de tiempo específico.
+
+Lo podríamos hacer usando el índice (posición) en el cual el dato ocupa en el tiempo:
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.1 usando índices: `slice`
+
+* seleccionando los diez primeros días de 2020:
+
+```{r}
+tseries %>% 
+  slice(index = 1:10, along = "time")
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+
+```{r}
+tseries %>% 
+  slice(index = 1:10, along = "time") %>% 
+  # as("Raster") %>% 
+  plot()
+```
+
+---
+
+El `plot` de objetos de la clase `stars` tiene, por defecto, escala de color gris y está justado(?) (*stretched*) usando cuantil de **todas las dimensiones** (“histogram equalization”). Pero podemos passar otros estílos usando el parametro `breaks`. Ejemplo:  =  `breaks = "equal"`.
+
+```{r}
+tseries %>% 
+  slice(index = 1:10, along = "time") %>% 
+  plot(breaks = "equal")
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.2 añadiendo vector al plot
+
+Me parece mejor añadirmos un poco de contexto espacial: Los límites de la Unidades de la Federación brasileña (UF).
+El paquete `stars` proveee un parâmetro en la función `plot()`, en la cual podemos pasar una función adicional (`hook`, un cancho, una cadena):
+
+```{r}
+plot_hook = function() plot(st_geometry(uf), border = 'red', add = TRUE)
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+```{r}
+tseries %>% 
+  slice(index = 1:10, along = "time") %>% 
+  plot(hook = plot_hook)
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.3 usando `filter`
+
+Hasta ahora todo bien, pero necesitamos trabajar con la información 'temporal' y no por índice. O sea, si sabemos que el período de incendios en Amazonia suele empezar en Julio y terminar en Octubre, se nos complicaria identificar en qué posición (indice) están las imágenes que necesitamos.
+
+Luego, para trabajar con las fechas, podemos usar la función `filter`.
+ej.: filtrando los datos hasta primer de Febrero:
+
+```{r}
+tseries %>% 
+  filter(
+    time < lubridate::ymd('2020-02-01')
+    ) %>% plot(hook = plot_hook)
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+Filtrando para un rango de fechas:
+
+```{r}
+tseries %>% filter(
+  time >= lubridate::ymd('2020-07-01'),
+  time < lubridate::ymd('2020-11-01')
+  ) %>% plot(hook = plot_hook)
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.4 "estadísticas" relacionadas a la dimensión tiemporal: `aggregate`
+
+Supongamos que necesitamos saber el valor promedio de polución a cada semana (siete días) para un rango de fecha. Para eso usados la función  `aggregate`;
+
+```{r}
+tseries %>% filter(
+  time >= lubridate::ymd('2020-07-01'),
+  time < lubridate::ymd('2020-11-01')
+  ) %>% aggregate(by = "7 days", FUN = mean) %>%
+  plot(hook=plot_hook)
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.4 "estadísticas" relacionadas a la dimensión tiemporal y espacial
+
+Bien, pero necesitamos estos valores promedios por UF.
+
+Basta usar la misma función (`aggregate`) aplicado a un dato espacial:
+
+```{r}
+tseries %>% filter(
+  time >= lubridate::ymd('2020-07-01'),
+  time < lubridate::ymd('2020-11-01')
+  ) %>% aggregate(by = "7 days", FUN = mean) %>%
+  aggregate(by = uf, FUN = mean) %>% 
+  plot()
+```
+
+---
+
+# 5. Cubo de datos **vectorial**?
+
+Qué resultado tengo del `aggregate` espacial?
+
+```{r}
+(datos_agregados_uf <- tseries %>% 
+  aggregate(by = uf, FUN = mean))
+```
+
+---
+
+background-image: url(./img/cube3.png)
+background-size: 600px
+background-position: 50% 50%
+
+# 5. Cubo de datos vectorial
+
+---
+
+# 5. Cubo de datos vectorial
+
+Y se maneja igual...
+
+```{r}
+datos_agregados_uf %>% filter(
+  time >= lubridate::ymd('2020-07-01'),
+  time < lubridate::ymd('2020-11-01')
+  ) %>% aggregate(by = "1 months", FUN = mean)
+```
+
+---
+
+# 5. Cubo de datos vectorial
+
+Y se maneja igual II...
+
+```{r, eval=FALSE}
+datos_agregados_uf %>% filter(
+  time >= lubridate::ymd('2020-07-01'),
+  time < lubridate::ymd('2020-11-01')
+  ) %>% aggregate(by = "1 months", FUN = mean) %>% 
+  plot(breaks='equal')
+```
+
+---
+
+# 6. Creando un cubo de datos raster
+
+Vamos a ocupar los datos del 01-01-2020 como ejemplo y converterlo a raster.
+
+```{r}
+(r <- tseries %>% slice(index = 1:30, along = "time") %>% as("SpatRaster"))
+```
+
+---
+
+# Convirtiendo un objeto raster para stars
+
+Una vez que tenemos al dato raster cargado como `raster`, podremos convertirlos al modelo `stars`:
+
+```{r}
+(s <- st_as_stars(r))
+```
+
+---
+
+# Organizando el metadatos
+
+Pero, tendremos que organizar los metadatos. Primero vamos a añadir un nombre al atributo:
+
+```{r}
+names(s) <- "Polución"
+st_get_dimension_values(s, 'band')
+```
+
+---
+
+# Cambiando el metadato
+
+Vamos a ocupar el `st_set_dimensions` para cambiar la dimensión `band` al modelo de fechas y cambiamos su nombre:
+
+```{r}
+(s <- st_set_dimensions(s,
+                  # which = 3,
+                  which = 'band',
+                  values = lubridate::date('2020-01-01') + 
+                    c(0:30),
+                  names = 'fechas'))
+
+```
+
+---
+
+# confirmando los valores de dimensión 'fechas'
+
+```{r}
+st_get_dimension_values(s, 'fechas')
+```
+
+---
+
+# manejando el cubo "más bajo nível"
+
+El cubo está estructurado en una estructura n-dimenciónal de `array`;
+Por eso se puede manejarlos usando el operador `objeto[, , ,]`, de forma que:
+* el primer elemento correnponde al atributo;
+* el segundo argumento corresponde a la primera dimensión
+* el tercer argumento corresponde a la segunda dimensión, etc
+
+```{r}
+s['Polución', , , 1:7 ]
+```
+
+---
+
+# Guardando el dato
+
+Aunque desafortunadamente el paquete `stars` no estés todavía listo para almacenar los metadatos de manera consistente, no nos empide de usarlo para guardar el cubo de dato en formato `NetCDF`:
+
+```{r}
+write_stars(s["Polución",,,], #adrop(s[1]),
+            "./cubo_polucion.nc",
+            overwrite=TRUE, 
+            driver='netCDF',
+            )
+```
+
+---
+
+# Cargando el dato
+
+Es justamente al cargar el dato guardado por el paquete `stars` que vemos que los metadatos se pirden:
+
+```{r}
+(s_ = stars::read_ncdf(.x = './cubo_polucion.nc', 
+          make_time = TRUE
+          ))
+```
+
+---
+
+# Cambiando de atributo hacia dimensión
+
+Pero no hay problema, lo podemos arreglar:
+
+Primero, cada bando fue leída como distintos atributos. Y las queremos como una sola dimensión (dimensión temporal). Para eso sirver la función `merge`.
+
+```{r}
+(s <- merge(s_))
+```
+
+---
+
+# Cambiando la dimensión hacia modelo de fecha
+ 
+```{r}
+names(s) <- "Polución"
+
+(s <- st_set_dimensions(s,
+                  which = 'attributes',
+                  values = lubridate::date('2020-01-01') + 
+                    c(0:30),
+                  names = 'fechas'))
+
+```
+
+---
+
+# Guardando y cargando el cubo de forma sensilla
+
+Si pretendien seguir usando R, podrás guardar en el fomrato `rds`:
+
+```{r, }
+saveRDS(s["Polución",,,], "cubo_polucion.rds")
+```
+
+---
+
+# Guardando y cargando el cubo de forma sensilla
+
+Al cargar seguimos con todo organizado:
+
+```{r}
+readRDS("cubo_polucion.rds")
+```
+
+---
+
+# 7. Para estar atento
+
+## Procesamiento "on-disk"
+
+El paquete `stars` permite realizar **procesamiento de los cubos de datos sin tenerlos cargados en la memoria**. Para eso se ocupan los objetos `stars_proxy` que contienen solamente los metadatos y apunta hacia los archivos en el disco duro.
+
+De esta manera, el procesamiento se da de forma "tardía" (*lazily*): La lectura y los procesamientos solamente son realizados en el momento en el que los pixels son realmente necesarios (Ej. en el plot o cuando se guarda el resultado en el disco).
+
+Más informacioines en [`stars_proxy`](https://r-spatial.github.io/stars/articles/stars2.html).
+
+---
+
+# Referencias y contactos 
+
+## Referencias 
+
+- [Documentación `stars`](https://r-spatial.github.io/stars)
+
+- [Libro online: Spatial Data Science](https://r-spatial.org/book/07-Introsf.html#package-stars)
+
+## contactos
+
+- [felipe.b4rros@gmail.com](felipe.b4rros@gmail.com)
+
+- [felipesbarros.github.io](https://felipesbarros.github.io)
