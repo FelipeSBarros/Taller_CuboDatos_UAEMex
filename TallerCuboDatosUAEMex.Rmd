@@ -13,8 +13,8 @@ output:
       countIncrementalSlides: false
 ---
 
-background-image: url(./img/UAEMex.png), url(./img/FacGeografía.jpeg), url(./img/GeoLIBERO.png)
-background-size: 200px, 300px, 280px
+background-image: url(./img/UAEMex.png), url(./img/FacGeografía.jpg), url(./img/GeoLIBERO.png)
+background-size: 200px, 200px, 240px
 background-position: 00% 50%, 50% 50%, 95% 50%
 
 class: center
@@ -93,7 +93,7 @@ El paquete `raster` ([Hijmans 2022a](https://rspatial.org/raster/)) ha sido el d
 
 --
 
-Tanto en el paquete `raster` cuanto en su secesor `terra` ([Hijmans 2022b](https://rspatial.org/terra/)), la estructura (o modelo de dato) raster es una malla regular 2D (o un conjunto del mismo tipo - “raster stack”).
+Tanto en el paquete `raster` cuanto en su sucesor `terra` ([Hijmans 2022b](https://rspatial.org/terra/)), la estructura (o modelo de dato) raster es una malla regular 2D (o un conjunto del mismo tipo - “raster stack”).
 <br>
 --
 Acorde a [Pebesma & Bivand](https://r-spatial.org/book/) se trata de la visión clásica de SIG:
@@ -172,8 +172,6 @@ background-position: 95% 0%
 <br>
 
 ```{r, warning=FALSE, message=FALSE}
-#install.packages("stars")
-#install.packages("dplyr")
 library(stars)
 library(dplyr)
 ```
@@ -220,7 +218,7 @@ Los modelos de material particulado fino (< 2.5µg) fueron descargados del "[Cop
 
 # Para que sepan...
 
-El paquete `stars` permite cargar los datos a partir de dos funcciones: `read_ncdf` and `read_stars`, siendo el ultimo se lo hace ocupando `GDAL`.
+El paquete `stars` permite cargar los datos a partir de dos funcciones: `read_ncdf` and `read_stars`, siendo el ultimo usando `GDAL`.
 
 ---
 
@@ -294,7 +292,7 @@ tseries %>%
 ## 4.2 añadiendo vector al plot
 
 Me parece mejor añadirmos un poco de contexto espacial: Los límites de la Unidades de la Federación brasileña (UF).
-El paquete `stars` proveee un parâmetro en la función `plot()`, en la cual podemos pasar una función adicional (`hook`, un cancho, una cadena):
+El paquete `stars` proveee un parâmetro en la función `plot()`, en la cual podemos pasar una función adicional (`hook`, un gancho, una cadena):
 
 ```{r}
 plot_hook = function() plot(st_geometry(uf), border = 'red', add = TRUE)

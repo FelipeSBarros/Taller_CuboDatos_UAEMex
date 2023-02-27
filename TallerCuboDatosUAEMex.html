@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Manejando cubo de datos ráster en R  </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Felipe Sodré M. Barros  Instituto Superior Antonio Ruiz de Montoya  Facultad de Ciencias Forestales de la Universidad Nacional de Misiones   Argentina    felipesbarros.github.io" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link href="libs/remark-css/metropolis.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# Manejando cubo de datos ráster en R<br><br>
+]
+.author[
+### Felipe Sodré M. Barros <br>Instituto Superior Antonio Ruiz de Montoya <br>Facultad de Ciencias Forestales de la Universidad Nacional de Misiones <br> Argentina <br><br> felipesbarros.github.io
+]
+.date[
+### <br> 28/11/2022
+]
+
+---
+
+
+background-image: url(./img/UAEMex.png), url(./img/FacGeografía.jpg), url(./img/GeoLIBERO.png)
+background-size: 200px, 200px, 240px
+background-position: 00% 50%, 50% 50%, 95% 50%
+
+class: center
+
+# Manejando cubo de datos ráster en R
+
+---
+
+
+
+# Manejando cubo de datos ráster
+
+## Contenido:
+
+--
+
+### 1. Contextualización:
+
+### 2. Por qué cubo de datos?
+
+### 3. Manejando Cubo de datos
+
+### 4. Cubo de datos ráster
+
+### 5. Cubo de datos vectorial
+
+### 6. Creando un cubo de datos raster
+
+### 7. Para estar atento
+
+### Referencias y contactos
+
+---
+
+background-image: url(./img/EngolindoFumaca.png)
+background-size: 950px
+background-position: 10% 0%
+
+class: inverse, center
+
+# 1. Contextualización
+
+---
+
+# 1.1 "Engolindo Fumaça"
+
+Proyecto de **periodísmo de datos** que buscó **identificar los efectos de los incendios forestales en el agravamiento de los casos de COVID19** en la Amazonia brasileña;
+[Publicaciones](https://infoamazonia.org/project/engolindo-fumaca/)  
+
+**Desafíos:**
+* identificar patrón espacio-temporal de los incendios / **modelos espaciales** de materiales particulados (pm&lt;2.5ug);
+* identificar municípios más afectados/expuestos a dichos materales;
+* brindar conocimientos para la producción de reportajes periodísticos;
+
+--
+
+&lt;img src="https://media.giphy.com/media/wZnReyIOKg94mgokn5/giphy.gif" width="30%" /&gt;
+
+---
+
+class: inverse, middle, center
+
+# 2. Por qué cubo de datos?
+
+---
+
+# 2. Por qué cubo de datos?
+
+&lt;br&gt;
+El paquete `raster` ([Hijmans 2022a](https://rspatial.org/raster/)) ha sido el dominante en el manejo de datos ráster en R. Es sin duda poderoso, flexible y escalable.
+&lt;br&gt;
+
+--
+
+Tanto en el paquete `raster` cuanto en su sucesor `terra` ([Hijmans 2022b](https://rspatial.org/terra/)), la estructura (o modelo de dato) raster es una malla regular 2D (o un conjunto del mismo tipo - “raster stack”).
+&lt;br&gt;
+--
+Acorde a [Pebesma &amp; Bivand](https://r-spatial.org/book/) se trata de la visión clásica de SIG:
+
+&gt; "where the world is modelled as a set of layers, each representing a different theme."
+
+&lt;br&gt;
+--
+Dichos autores llaman la atención al hecho de que actualmente tenemos acceso a datos poducidos en tiempo real (dinámicos) y nos forza a trabajar con el **parámetro  temporal** de los rasters (y raster stack) :: **cubo de datos**.
+&lt;br&gt;
+--
+&lt;br&gt;
+Aunque muchos se lo crean, un `raster stack` no refleja esa condición (espacio-temporal).
+
+---
+
+class: inverse
+
+background-image: url(./img/cube1.png), url(./img/cube2.png)
+background-size: 400px, 600px
+background-position: 0% 0%, 95% 95%
+
+---
+
+class: inverse
+
+background-image: url(http://brazildatacube.org/wp-content/uploads/2020/12/artigo-brazil-data-cube-inpe-1.jpg)
+background-size: 800px
+background-position: 50% 50%
+
+# Disclaimer:
+
+---
+
+# 2.1 La extensión NetCDF
+
+La estructura de datos más utitizada para almacenar cubos de datos (y no solo), es `NetCDF`, que basicamente se caracteriza por:
+
+&gt; “binary data files that are portable across platforms and include metadata information in addition to the data sets.”
+
+*Traducción*:  
+&gt; “ser un archivo de dato binario indenpendiende de la plataforma computacional que inluye metadatos más allá del conjunto de datos.”
+
+---
+
+# 2.2 El paquete stars
+
+El paquete [`stars`](https://cran.r-project.org/web/packages/stars/index.html) nasce para justamente permitir la *creacción*, *carga* y *manipulación* de cubo de datos *vectoriales* y *raster*.
+
+Además, nos permite:  
+* diferenciar `atributos` de las `dimensiones`  de los datos (espaciales / **temporal**);
+* disempeño en los procesamientos;
+* integración con `sf`, `raster` y `GDAL`;
+* uso de matrices no regulares (*rotated*, *sheared*, *rectilinear* y *curvilinear*);
+* sigue el princípio "tidyverse";
+
+---
+
+class: inverse, center
+
+# 3. Manos a la obra:
+
+---
+background-image: url(https://dplyr.tidyverse.org/logo.png)
+background-size: 100px
+background-position: 95% 0%
+
+# 3.1 Cargandos los paquetes necesarios
+
+[`dplyr`](https://dplyr.tidyverse.org/) es un paquete que nos facilita la manipulación de datos;  
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+[`stars`](https://cran.r-project.org/web/packages/stars/index.html) es el paquete que vamos a ocupar para cargar y manipular los cubos de datos;
+&lt;br&gt;
+&lt;br&gt;
+
+
+```r
+library(stars)
+library(dplyr)
+```
+
+---
+
+# 3.2 Cargando los datos
+
+
+```r
+# Estados (provincias) de amazonia
+uf &lt;- readRDS('./data/tidy/uf.rds')
+
+# cubo de datos material particulado &lt; 2.5
+(tseries &lt;- read_stars("./data/CAMS/pm25_daily_mean_2020.nc"))
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s), summary of first 1e+05 cells:
+##                                   Min.  1st Qu. Median     Mean 3rd Qu.
+## pm25_daily_mean_2020.nc [ug] 0.2597396 5.280652 7.7442 8.823416 10.9463
+##                                  Max. NA's
+## pm25_daily_mean_2020.nc [ug] 166.1607 5681
+## dimension(s):
+##      from  to         offset  delta  refsys x/y
+## x       1  78         -74.59    0.4      NA [x]
+## y       1  62           6.16   -0.4      NA [y]
+## time    1 366 2020-01-01 UTC 1 days POSIXct
+```
+
+---
+
+# 3.3 Entendiendo la clase stars
+
+Cada dimensión tiene un nombre;
+
+Las dimensiones presentan los siguientes campos:
+
+| **field** | **significado** |
+|:---:|:---:|
+| from | indice de origen (1) |
+| to | index final (dim(x)[i]) |
+| offset | el valor inicial para dicha dimensión (pixel boundary), si regular |
+| delta | el valor de cambio de la dimensión, si regular |
+| refsys | el sistema de referencia (proj4string, POSIXct, etc) |
+| point | verdadero/falso; informa cuando el pixel se refiere a un punto |
+| values | secuencia de valores para la dimensión, si irregular |
+
+---
+
+# Al respecto de los datos
+
+Los datos que vamos a cargar ya fueron tratados y organizados: Los datos de las provincias fueron descargados usando [geobr](https://github.com/ipeaGIT/geobr) y filtrado por aquellos que hacen parte de la Amazonia brasileña ("Amazonia Legal");
+
+Los modelos de material particulado fino (&lt; 2.5µg) fueron descargados del "[Copernicus Atmospheric Monitoring Service (CAMS)](https://atmosphere.copernicus.eu/charts/cams)" para todas las nueve horas de todos los días de 2020 y, para no manejarmos un conjunto de datos tan grande, vamos a trabajar con el valor medio diário.
+
+---
+
+# Para que sepan...
+
+El paquete `stars` permite cargar los datos a partir de dos funcciones: `read_ncdf` and `read_stars`, siendo el ultimo usando `GDAL`.
+
+---
+
+# Haciendo algunos ajustes basicos
+
+
+```r
+sf::st_crs(tseries) &lt;- st_crs(uf)
+names(tseries) &lt;- "ppm &lt; 2.5"
+tseries
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s), summary of first 1e+05 cells:
+##                     Min.  1st Qu. Median     Mean 3rd Qu.     Max. NA's
+## ppm &lt; 2.5 [ug] 0.2597396 5.280652 7.7442 8.823416 10.9463 166.1607 5681
+## dimension(s):
+##      from  to         offset  delta  refsys x/y
+## x       1  78         -74.59    0.4  WGS 84 [x]
+## y       1  62           6.16   -0.4  WGS 84 [y]
+## time    1 366 2020-01-01 UTC 1 days POSIXct
+```
+
+---
+
+# Identificando la dimensión "time"
+
+
+```r
+st_get_dimension_values(tseries, "time")
+```
+
+```
+##   [1] "2020-01-01 UTC" "2020-01-02 UTC" "2020-01-03 UTC" "2020-01-04 UTC"
+##   [5] "2020-01-05 UTC" "2020-01-06 UTC" "2020-01-07 UTC" "2020-01-08 UTC"
+##   [9] "2020-01-09 UTC" "2020-01-10 UTC" "2020-01-11 UTC" "2020-01-12 UTC"
+##  [13] "2020-01-13 UTC" "2020-01-14 UTC" "2020-01-15 UTC" "2020-01-16 UTC"
+##  [17] "2020-01-17 UTC" "2020-01-18 UTC" "2020-01-19 UTC" "2020-01-20 UTC"
+##  [21] "2020-01-21 UTC" "2020-01-22 UTC" "2020-01-23 UTC" "2020-01-24 UTC"
+##  [25] "2020-01-25 UTC" "2020-01-26 UTC" "2020-01-27 UTC" "2020-01-28 UTC"
+##  [29] "2020-01-29 UTC" "2020-01-30 UTC" "2020-01-31 UTC" "2020-02-01 UTC"
+##  [33] "2020-02-02 UTC" "2020-02-03 UTC" "2020-02-04 UTC" "2020-02-05 UTC"
+##  [37] "2020-02-06 UTC" "2020-02-07 UTC" "2020-02-08 UTC" "2020-02-09 UTC"
+##  [41] "2020-02-10 UTC" "2020-02-11 UTC" "2020-02-12 UTC" "2020-02-13 UTC"
+##  [45] "2020-02-14 UTC" "2020-02-15 UTC" "2020-02-16 UTC" "2020-02-17 UTC"
+##  [49] "2020-02-18 UTC" "2020-02-19 UTC" "2020-02-20 UTC" "2020-02-21 UTC"
+##  [53] "2020-02-22 UTC" "2020-02-23 UTC" "2020-02-24 UTC" "2020-02-25 UTC"
+##  [57] "2020-02-26 UTC" "2020-02-27 UTC" "2020-02-28 UTC" "2020-02-29 UTC"
+##  [61] "2020-03-01 UTC" "2020-03-02 UTC" "2020-03-03 UTC" "2020-03-04 UTC"
+##  [65] "2020-03-05 UTC" "2020-03-06 UTC" "2020-03-07 UTC" "2020-03-08 UTC"
+##  [69] "2020-03-09 UTC" "2020-03-10 UTC" "2020-03-11 UTC" "2020-03-12 UTC"
+##  [73] "2020-03-13 UTC" "2020-03-14 UTC" "2020-03-15 UTC" "2020-03-16 UTC"
+##  [77] "2020-03-17 UTC" "2020-03-18 UTC" "2020-03-19 UTC" "2020-03-20 UTC"
+##  [81] "2020-03-21 UTC" "2020-03-22 UTC" "2020-03-23 UTC" "2020-03-24 UTC"
+##  [85] "2020-03-25 UTC" "2020-03-26 UTC" "2020-03-27 UTC" "2020-03-28 UTC"
+##  [89] "2020-03-29 UTC" "2020-03-30 UTC" "2020-03-31 UTC" "2020-04-01 UTC"
+##  [93] "2020-04-02 UTC" "2020-04-03 UTC" "2020-04-04 UTC" "2020-04-05 UTC"
+##  [97] "2020-04-06 UTC" "2020-04-07 UTC" "2020-04-08 UTC" "2020-04-09 UTC"
+## [101] "2020-04-10 UTC" "2020-04-11 UTC" "2020-04-12 UTC" "2020-04-13 UTC"
+## [105] "2020-04-14 UTC" "2020-04-15 UTC" "2020-04-16 UTC" "2020-04-17 UTC"
+## [109] "2020-04-18 UTC" "2020-04-19 UTC" "2020-04-20 UTC" "2020-04-21 UTC"
+## [113] "2020-04-22 UTC" "2020-04-23 UTC" "2020-04-24 UTC" "2020-04-25 UTC"
+## [117] "2020-04-26 UTC" "2020-04-27 UTC" "2020-04-28 UTC" "2020-04-29 UTC"
+## [121] "2020-04-30 UTC" "2020-05-01 UTC" "2020-05-02 UTC" "2020-05-03 UTC"
+## [125] "2020-05-04 UTC" "2020-05-05 UTC" "2020-05-06 UTC" "2020-05-07 UTC"
+## [129] "2020-05-08 UTC" "2020-05-09 UTC" "2020-05-10 UTC" "2020-05-11 UTC"
+## [133] "2020-05-12 UTC" "2020-05-13 UTC" "2020-05-14 UTC" "2020-05-15 UTC"
+## [137] "2020-05-16 UTC" "2020-05-17 UTC" "2020-05-18 UTC" "2020-05-19 UTC"
+## [141] "2020-05-20 UTC" "2020-05-21 UTC" "2020-05-22 UTC" "2020-05-23 UTC"
+## [145] "2020-05-24 UTC" "2020-05-25 UTC" "2020-05-26 UTC" "2020-05-27 UTC"
+## [149] "2020-05-28 UTC" "2020-05-29 UTC" "2020-05-30 UTC" "2020-05-31 UTC"
+## [153] "2020-06-01 UTC" "2020-06-02 UTC" "2020-06-03 UTC" "2020-06-04 UTC"
+## [157] "2020-06-05 UTC" "2020-06-06 UTC" "2020-06-07 UTC" "2020-06-08 UTC"
+## [161] "2020-06-09 UTC" "2020-06-10 UTC" "2020-06-11 UTC" "2020-06-12 UTC"
+## [165] "2020-06-13 UTC" "2020-06-14 UTC" "2020-06-15 UTC" "2020-06-16 UTC"
+## [169] "2020-06-17 UTC" "2020-06-18 UTC" "2020-06-19 UTC" "2020-06-20 UTC"
+## [173] "2020-06-21 UTC" "2020-06-22 UTC" "2020-06-23 UTC" "2020-06-24 UTC"
+## [177] "2020-06-25 UTC" "2020-06-26 UTC" "2020-06-27 UTC" "2020-06-28 UTC"
+## [181] "2020-06-29 UTC" "2020-06-30 UTC" "2020-07-01 UTC" "2020-07-02 UTC"
+## [185] "2020-07-03 UTC" "2020-07-04 UTC" "2020-07-05 UTC" "2020-07-06 UTC"
+## [189] "2020-07-07 UTC" "2020-07-08 UTC" "2020-07-09 UTC" "2020-07-10 UTC"
+## [193] "2020-07-11 UTC" "2020-07-12 UTC" "2020-07-13 UTC" "2020-07-14 UTC"
+## [197] "2020-07-15 UTC" "2020-07-16 UTC" "2020-07-17 UTC" "2020-07-18 UTC"
+## [201] "2020-07-19 UTC" "2020-07-20 UTC" "2020-07-21 UTC" "2020-07-22 UTC"
+## [205] "2020-07-23 UTC" "2020-07-24 UTC" "2020-07-25 UTC" "2020-07-26 UTC"
+## [209] "2020-07-27 UTC" "2020-07-28 UTC" "2020-07-29 UTC" "2020-07-30 UTC"
+## [213] "2020-07-31 UTC" "2020-08-01 UTC" "2020-08-02 UTC" "2020-08-03 UTC"
+## [217] "2020-08-04 UTC" "2020-08-05 UTC" "2020-08-06 UTC" "2020-08-07 UTC"
+## [221] "2020-08-08 UTC" "2020-08-09 UTC" "2020-08-10 UTC" "2020-08-11 UTC"
+## [225] "2020-08-12 UTC" "2020-08-13 UTC" "2020-08-14 UTC" "2020-08-15 UTC"
+## [229] "2020-08-16 UTC" "2020-08-17 UTC" "2020-08-18 UTC" "2020-08-19 UTC"
+## [233] "2020-08-20 UTC" "2020-08-21 UTC" "2020-08-22 UTC" "2020-08-23 UTC"
+## [237] "2020-08-24 UTC" "2020-08-25 UTC" "2020-08-26 UTC" "2020-08-27 UTC"
+## [241] "2020-08-28 UTC" "2020-08-29 UTC" "2020-08-30 UTC" "2020-08-31 UTC"
+## [245] "2020-09-01 UTC" "2020-09-02 UTC" "2020-09-03 UTC" "2020-09-04 UTC"
+## [249] "2020-09-05 UTC" "2020-09-06 UTC" "2020-09-07 UTC" "2020-09-08 UTC"
+## [253] "2020-09-09 UTC" "2020-09-10 UTC" "2020-09-11 UTC" "2020-09-12 UTC"
+## [257] "2020-09-13 UTC" "2020-09-14 UTC" "2020-09-15 UTC" "2020-09-16 UTC"
+## [261] "2020-09-17 UTC" "2020-09-18 UTC" "2020-09-19 UTC" "2020-09-20 UTC"
+## [265] "2020-09-21 UTC" "2020-09-22 UTC" "2020-09-23 UTC" "2020-09-24 UTC"
+## [269] "2020-09-25 UTC" "2020-09-26 UTC" "2020-09-27 UTC" "2020-09-28 UTC"
+## [273] "2020-09-29 UTC" "2020-09-30 UTC" "2020-10-01 UTC" "2020-10-02 UTC"
+## [277] "2020-10-03 UTC" "2020-10-04 UTC" "2020-10-05 UTC" "2020-10-06 UTC"
+## [281] "2020-10-07 UTC" "2020-10-08 UTC" "2020-10-09 UTC" "2020-10-10 UTC"
+## [285] "2020-10-11 UTC" "2020-10-12 UTC" "2020-10-13 UTC" "2020-10-14 UTC"
+## [289] "2020-10-15 UTC" "2020-10-16 UTC" "2020-10-17 UTC" "2020-10-18 UTC"
+## [293] "2020-10-19 UTC" "2020-10-20 UTC" "2020-10-21 UTC" "2020-10-22 UTC"
+## [297] "2020-10-23 UTC" "2020-10-24 UTC" "2020-10-25 UTC" "2020-10-26 UTC"
+## [301] "2020-10-27 UTC" "2020-10-28 UTC" "2020-10-29 UTC" "2020-10-30 UTC"
+## [305] "2020-10-31 UTC" "2020-11-01 UTC" "2020-11-02 UTC" "2020-11-03 UTC"
+## [309] "2020-11-04 UTC" "2020-11-05 UTC" "2020-11-06 UTC" "2020-11-07 UTC"
+## [313] "2020-11-08 UTC" "2020-11-09 UTC" "2020-11-10 UTC" "2020-11-11 UTC"
+## [317] "2020-11-12 UTC" "2020-11-13 UTC" "2020-11-14 UTC" "2020-11-15 UTC"
+## [321] "2020-11-16 UTC" "2020-11-17 UTC" "2020-11-18 UTC" "2020-11-19 UTC"
+## [325] "2020-11-20 UTC" "2020-11-21 UTC" "2020-11-22 UTC" "2020-11-23 UTC"
+## [329] "2020-11-24 UTC" "2020-11-25 UTC" "2020-11-26 UTC" "2020-11-27 UTC"
+## [333] "2020-11-28 UTC" "2020-11-29 UTC" "2020-11-30 UTC" "2020-12-01 UTC"
+## [337] "2020-12-02 UTC" "2020-12-03 UTC" "2020-12-04 UTC" "2020-12-05 UTC"
+## [341] "2020-12-06 UTC" "2020-12-07 UTC" "2020-12-08 UTC" "2020-12-09 UTC"
+## [345] "2020-12-10 UTC" "2020-12-11 UTC" "2020-12-12 UTC" "2020-12-13 UTC"
+## [349] "2020-12-14 UTC" "2020-12-15 UTC" "2020-12-16 UTC" "2020-12-17 UTC"
+## [353] "2020-12-18 UTC" "2020-12-19 UTC" "2020-12-20 UTC" "2020-12-21 UTC"
+## [357] "2020-12-22 UTC" "2020-12-23 UTC" "2020-12-24 UTC" "2020-12-25 UTC"
+## [361] "2020-12-26 UTC" "2020-12-27 UTC" "2020-12-28 UTC" "2020-12-29 UTC"
+## [365] "2020-12-30 UTC" "2020-12-31 UTC"
+```
+
+---
+
+background-image: url(https://i.gifer.com/Fudg.gif)
+background-size: 100px
+background-position: 95% 22%
+
+# 4. Cubo de datos ráster
+
+Ya que estamos trabajando con la dimensión tiempo, es más que natual necesitar seleccionar una fecha o un rango de tiempo específico.
+
+Lo podríamos hacer usando el índice (posición) en el cual el dato ocupa en el tiempo:
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.1 usando índices: `slice`
+
+* seleccionando los diez primeros días de 2020:
+
+
+```r
+tseries %&gt;% 
+  slice(index = 1:10, along = "time")
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s):
+##                     Min.  1st Qu.   Median     Mean 3rd Qu.     Max. NA's
+## ppm &lt; 2.5 [ug] 0.2618084 6.022434 8.474204 9.574993  11.666 103.1181 2760
+## dimension(s):
+##      from to         offset  delta  refsys x/y
+## x       1 78         -74.59    0.4  WGS 84 [x]
+## y       1 62           6.16   -0.4  WGS 84 [y]
+## time    1 10 2020-01-01 UTC 1 days POSIXct
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+
+
+```r
+tseries %&gt;% 
+  slice(index = 1:10, along = "time") %&gt;% 
+  # as("Raster") %&gt;% 
+  plot()
+```
+
+![](TallerCuboDatosUAEMex_files/figure-html/unnamed-chunk-7-1.png)&lt;!-- --&gt;
+
+---
+
+El `plot` de objetos de la clase `stars` tiene, por defecto, escala de color gris y está justado(?) (*stretched*) usando cuantil de **todas las dimensiones** (“histogram equalization”). Pero podemos passar otros estílos usando el parametro `breaks`. Ejemplo:  =  `breaks = "equal"`.
+
+
+```r
+tseries %&gt;% 
+  slice(index = 1:10, along = "time") %&gt;% 
+  plot(breaks = "equal")
+```
+
+![](TallerCuboDatosUAEMex_files/figure-html/unnamed-chunk-8-1.png)&lt;!-- --&gt;
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.2 añadiendo vector al plot
+
+Me parece mejor añadirmos un poco de contexto espacial: Los límites de la Unidades de la Federación brasileña (UF).
+El paquete `stars` proveee un parâmetro en la función `plot()`, en la cual podemos pasar una función adicional (`hook`, un gancho, una cadena):
+
+
+```r
+plot_hook = function() plot(st_geometry(uf), border = 'red', add = TRUE)
+```
+
+---
+
+# 4. Cubo de datos ráster
+
+
+```r
+tseries %&gt;% 
+  slice(index = 1:10, along = "time") %&gt;% 
+  plot(hook = plot_hook)
+```
+
+![](TallerCuboDatosUAEMex_files/figure-html/unnamed-chunk-10-1.png)&lt;!-- --&gt;
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.3 usando `filter`
+
+Hasta ahora todo bien, pero necesitamos trabajar con la información 'temporal' y no por índice. O sea, si sabemos que el período de incendios en Amazonia suele empezar en Julio y terminar en Octubre, se nos complicaria identificar en qué posición (indice) están las imágenes que necesitamos.
+
+Luego, para trabajar con las fechas, podemos usar la función `filter`.
+ej.: filtrando los datos hasta primer de Febrero:
+
+
+```r
+tseries %&gt;% 
+  filter(
+    time &lt; lubridate::ymd('2020-02-01')
+    ) %&gt;% plot(hook = plot_hook)
+```
+
+![](TallerCuboDatosUAEMex_files/figure-html/unnamed-chunk-11-1.png)&lt;!-- --&gt;
+
+---
+
+# 4. Cubo de datos ráster
+
+Filtrando para un rango de fechas:
+
+
+```r
+tseries %&gt;% filter(
+  time &gt;= lubridate::ymd('2020-07-01'),
+  time &lt; lubridate::ymd('2020-11-01')
+  ) %&gt;% plot(hook = plot_hook)
+```
+
+![](TallerCuboDatosUAEMex_files/figure-html/unnamed-chunk-12-1.png)&lt;!-- --&gt;
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.4 "estadísticas" relacionadas a la dimensión tiemporal: `aggregate`
+
+Supongamos que necesitamos saber el valor promedio de polución a cada semana (siete días) para un rango de fecha. Para eso usados la función  `aggregate`;
+
+
+```r
+tseries %&gt;% filter(
+  time &gt;= lubridate::ymd('2020-07-01'),
+  time &lt; lubridate::ymd('2020-11-01')
+  ) %&gt;% aggregate(by = "7 days", FUN = mean) %&gt;%
+  plot(hook=plot_hook)
+```
+
+![](TallerCuboDatosUAEMex_files/figure-html/unnamed-chunk-13-1.png)&lt;!-- --&gt;
+
+---
+
+# 4. Cubo de datos ráster
+
+## 4.4 "estadísticas" relacionadas a la dimensión tiemporal y espacial
+
+Bien, pero necesitamos estos valores promedios por UF.
+
+Basta usar la misma función (`aggregate`) aplicado a un dato espacial:
+
+
+```r
+tseries %&gt;% filter(
+  time &gt;= lubridate::ymd('2020-07-01'),
+  time &lt; lubridate::ymd('2020-11-01')
+  ) %&gt;% aggregate(by = "7 days", FUN = mean) %&gt;%
+  aggregate(by = uf, FUN = mean) %&gt;% 
+  plot()
+```
+
+```
+## Warning: plotting the first 9 out of 18 attributes; use max.plot = 18 to plot
+## all
+```
+
+![](TallerCuboDatosUAEMex_files/figure-html/unnamed-chunk-14-1.png)&lt;!-- --&gt;
+
+---
+
+# 5. Cubo de datos **vectorial**?
+
+Qué resultado tengo del `aggregate` espacial?
+
+
+```r
+(datos_agregados_uf &lt;- tseries %&gt;% 
+  aggregate(by = uf, FUN = mean))
+```
+
+```
+## stars object with 2 dimensions and 1 attribute
+## attribute(s):
+##                    Min.  1st Qu.   Median     Mean 3rd Qu.     Max. NA's
+## ppm &lt; 2.5 [ug] 1.034596 7.050042 9.733505 12.83667 13.6511 125.5489  366
+## dimension(s):
+##      from  to         offset  delta  refsys point
+## geom    1   9             NA     NA  WGS 84 FALSE
+## time    1 366 2020-01-01 UTC 1 days POSIXct    NA
+##                                                             values
+## geom MULTIPOLYGON (((-63.32721...,...,MULTIPOLYGON (((-54.89485...
+## time                                                          NULL
+```
+
+---
+
+background-image: url(./img/cube3.png)
+background-size: 600px
+background-position: 50% 50%
+
+# 5. Cubo de datos vectorial
+
+---
+
+# 5. Cubo de datos vectorial
+
+Y se maneja igual...
+
+
+```r
+datos_agregados_uf %&gt;% filter(
+  time &gt;= lubridate::ymd('2020-07-01'),
+  time &lt; lubridate::ymd('2020-11-01')
+  ) %&gt;% aggregate(by = "1 months", FUN = mean)
+```
+
+```
+## stars object with 2 dimensions and 1 attribute
+## attribute(s):
+##                Min. 1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## ppm &lt; 2.5  3.749945 9.23199 16.56846 19.58537 24.61668 69.24747    4
+## dimension(s):
+##      from to  refsys point
+## time    1  4 POSIXct    NA
+## geom    1  9  WGS 84 FALSE
+##                                                             values
+## time                                     2020-07-01,...,2020-10-01
+## geom MULTIPOLYGON (((-63.32721...,...,MULTIPOLYGON (((-54.89485...
+```
+
+---
+
+# 5. Cubo de datos vectorial
+
+Y se maneja igual II...
+
+
+```r
+datos_agregados_uf %&gt;% filter(
+  time &gt;= lubridate::ymd('2020-07-01'),
+  time &lt; lubridate::ymd('2020-11-01')
+  ) %&gt;% aggregate(by = "1 months", FUN = mean) %&gt;% 
+  plot(breaks='equal')
+```
+
+---
+
+# 6. Creando un cubo de datos raster
+
+Vamos a ocupar los datos del 01-01-2020 como ejemplo y converterlo a raster.
+
+
+```r
+(r &lt;- tseries %&gt;% slice(index = 1:30, along = "time") %&gt;% as("SpatRaster"))
+```
+
+```
+## class       : SpatRaster 
+## dimensions  : 62, 78, 30  (nrow, ncol, nlyr)
+## resolution  : 0.4, 0.4  (x, y)
+## extent      : -74.59, -43.39, -18.64, 6.16  (xmin, xmax, ymin, ymax)
+## coord. ref. : lon/lat WGS 84 (EPSG:4326) 
+## source(s)   : memory
+## names       : time2~01-01, time2~01-02, time2~01-03, time2~01-04, time2~01-05, time2~01-06, ... 
+## min values  :   0.7638272,   0.2618084,    2.005264,   0.6795541,   0.9549108,   0.6271348, ... 
+## max values  :  50.8284035,  72.6466141,   61.733257,  54.2623367,  71.2163773,  41.1043892, ...
+```
+
+---
+
+# Convirtiendo un objeto raster para stars
+
+Una vez que tenemos al dato raster cargado como `raster`, podremos convertirlos al modelo `stars`:
+
+
+```r
+(s &lt;- st_as_stars(r))
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s):
+##                      Min.  1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## time2020-01-01  0.2597396 5.564454 8.109292 9.239033 11.46879 243.6578 8280
+## dimension(s):
+##      from to offset delta refsys                            values x/y
+## x       1 78 -74.59   0.4 WGS 84                              NULL [x]
+## y       1 62   6.16  -0.4 WGS 84                              NULL [y]
+## band    1 30     NA    NA     NA time2020-01-01,...,time2020-01-30
+```
+
+---
+
+# Organizando el metadatos
+
+Pero, tendremos que organizar los metadatos. Primero vamos a añadir un nombre al atributo:
+
+
+```r
+names(s) &lt;- "Polución"
+st_get_dimension_values(s, 'band')
+```
+
+```
+##  [1] "time2020-01-01" "time2020-01-02" "time2020-01-03" "time2020-01-04"
+##  [5] "time2020-01-05" "time2020-01-06" "time2020-01-07" "time2020-01-08"
+##  [9] "time2020-01-09" "time2020-01-10" "time2020-01-11" "time2020-01-12"
+## [13] "time2020-01-13" "time2020-01-14" "time2020-01-15" "time2020-01-16"
+## [17] "time2020-01-17" "time2020-01-18" "time2020-01-19" "time2020-01-20"
+## [21] "time2020-01-21" "time2020-01-22" "time2020-01-23" "time2020-01-24"
+## [25] "time2020-01-25" "time2020-01-26" "time2020-01-27" "time2020-01-28"
+## [29] "time2020-01-29" "time2020-01-30"
+```
+
+---
+
+# Cambiando el metadato
+
+Vamos a ocupar el `st_set_dimensions` para cambiar la dimensión `band` al modelo de fechas y cambiamos su nombre:
+
+
+```r
+(s &lt;- st_set_dimensions(s,
+                  # which = 3,
+                  which = 'band',
+                  values = lubridate::date('2020-01-01') + 
+                    c(0:30),
+                  names = 'fechas'))
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s):
+##                Min.  1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## Polución  0.2597396 5.564454 8.109292 9.239033 11.46879 243.6578 8280
+## dimension(s):
+##        from to offset delta refsys
+## x         1 78 -74.59   0.4 WGS 84
+## y         1 62   6.16  -0.4 WGS 84
+## fechas    1 30     NA    NA   Date
+##                                                     values x/y
+## x                                                     NULL [x]
+## y                                                     NULL [y]
+## fechas [2020-01-01,2020-01-02),...,[2020-01-30,2020-01-31)
+```
+
+---
+
+# confirmando los valores de dimensión 'fechas'
+
+
+```r
+st_get_dimension_values(s, 'fechas')
+```
+
+```
+##  [1] "2020-01-01" "2020-01-02" "2020-01-03" "2020-01-04" "2020-01-05"
+##  [6] "2020-01-06" "2020-01-07" "2020-01-08" "2020-01-09" "2020-01-10"
+## [11] "2020-01-11" "2020-01-12" "2020-01-13" "2020-01-14" "2020-01-15"
+## [16] "2020-01-16" "2020-01-17" "2020-01-18" "2020-01-19" "2020-01-20"
+## [21] "2020-01-21" "2020-01-22" "2020-01-23" "2020-01-24" "2020-01-25"
+## [26] "2020-01-26" "2020-01-27" "2020-01-28" "2020-01-29" "2020-01-30"
+```
+
+---
+
+# manejando el cubo "más bajo nível"
+
+El cubo está estructurado en una estructura n-dimenciónal de `array`;
+Por eso se puede manejarlos usando el operador `objeto[, , ,]`, de forma que:
+* el primer elemento correnponde al atributo;
+* el segundo argumento corresponde a la primera dimensión
+* el tercer argumento corresponde a la segunda dimensión, etc
+
+
+```r
+s['Polución', , , 1:7 ]
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s):
+##                Min.  1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## Polución  0.2618084 5.879676 8.210444 9.292318 11.19391 72.64661 1932
+## dimension(s):
+##        from to offset delta refsys
+## x         1 78 -74.59   0.4 WGS 84
+## y         1 62   6.16  -0.4 WGS 84
+## fechas    1  7     NA    NA   Date
+##                                                     values x/y
+## x                                                     NULL [x]
+## y                                                     NULL [y]
+## fechas [2020-01-01,2020-01-02),...,[2020-01-07,2020-01-08)
+```
+
+---
+
+# Guardando el dato
+
+Aunque desafortunadamente el paquete `stars` no estés todavía listo para almacenar los metadatos de manera consistente, no nos empide de usarlo para guardar el cubo de dato en formato `NetCDF`:
+
+
+```r
+write_stars(s["Polución",,,], #adrop(s[1]),
+            "./cubo_polucion.nc",
+            overwrite=TRUE, 
+            driver='netCDF',
+            )
+```
+
+---
+
+# Cargando el dato
+
+Es justamente al cargar el dato guardado por el paquete `stars` que vemos que los metadatos se pirden:
+
+
+```r
+(s_ = stars::read_ncdf(.x = './cubo_polucion.nc', 
+          make_time = TRUE
+          ))
+```
+
+```
+## no 'var' specified, using Band1, Band2, Band3, Band4, Band5, Band6, Band7, Band8, Band9, Band10, Band11, Band12, Band13, Band14, Band15, Band16, Band17, Band18, Band19, Band20, Band21, Band22, Band23, Band24, Band25, Band26, Band27, Band28, Band29, Band30
+```
+
+```
+## other available variables:
+##  crs, lat, lon
+```
+
+```
+## Will return stars object with 4836 cells.
+```
+
+```
+## Warning in CPL_crs_from_input(x): GDAL Error 1: PROJ: proj_create: Error 1027
+## (Invalid value for an argument): longlat: Invalid value for units
+```
+
+```
+## Warning in value[[3L]](cond): failed to create crs based on grid mapping
+## and coordinate variable units. Will return NULL crs.
+## Original error: 
+## Error in st_crs.character(base_gm): invalid crs: +proj=longlat +a=6378137 +f=0.00335281066474748 +pm=0 +no_defs +units=degrees
+```
+
+```
+## stars object with 2 dimensions and 30 attributes
+## attribute(s):
+##              Min.  1st Qu.   Median      Mean   3rd Qu.      Max. NA's
+## Band1   0.7638272 6.148663 8.868383  9.507316 12.082260  50.82840  276
+## Band2   0.2618084 5.542403 7.657973  8.263460 10.085213  72.64661  276
+## Band3   2.0052636 6.221311 8.007550  8.862021 10.537966  61.73326  276
+## Band4   0.6795541 4.973832 7.772164  9.044251 11.611794  54.26234  276
+## Band5   0.9549108 6.373039 8.555789 10.248855 12.047083  71.21638  276
+## Band6   0.6271348 5.939827 9.029950 10.372184 12.947732  41.10439  276
+## Band7   0.5946324 6.032497 7.861794  8.748136  9.754224  42.19862  276
+## Band8   0.5178781 6.818068 9.105078 10.466458 12.402677  73.68043  276
+## Band9   0.9538610 6.982634 9.822718 10.289609 12.914961  77.93321  276
+## Band10  1.1593053 5.708351 8.470044  9.947641 12.524126 103.11810  276
+## Band11  0.9893907 4.634102 6.955417  8.094801 10.335701  53.00257  276
+## Band12  1.1837965 4.178890 6.378174  7.365766  9.597273  44.93504  276
+## Band13  0.7722870 4.262877 5.727042  6.416100  7.768277  51.15311  276
+## Band14  0.8344810 3.949163 5.624702  6.400379  7.688053  82.78962  276
+## Band15  0.2597396 4.518021 6.240339  7.670130  9.457911 123.33949  276
+## Band16  0.5696856 4.038693 6.300086  7.238373  9.078893  90.67342  276
+## Band17  0.5984553 5.056810 7.646055  8.523174 10.361087 166.16069  276
+## Band18  0.6942855 5.811460 8.465216  9.709792 11.675719  93.03957  276
+## Band19  1.1018866 5.180480 7.707537  8.447944 10.568869  89.98894  276
+## Band20  1.0200852 6.169446 9.397787 10.418447 13.847013  75.17163  276
+## Band21  1.0451019 5.840454 8.054626  9.033704 11.579372  61.96472  276
+## Band22  2.3913794 6.957433 9.888249 10.828263 13.598842  79.41374  276
+## Band23  0.3328749 5.673955 8.056165  8.983058 10.940967 243.65779  276
+## Band24  0.4456079 6.015446 8.126544  9.165511 11.192006  75.99904  276
+## Band25  1.6478916 5.846241 8.674622  9.847578 12.583239  85.85350  276
+## Band26  0.7869922 6.315221 9.002050  9.977983 12.492051 112.52428  276
+## Band27  0.5034472 6.447674 9.473892 11.097802 14.393661 114.10352  276
+## Band28  1.6600797 6.968183 9.632840 11.048299 12.895380 135.40369  276
+## Band29  1.1156752 6.089032 8.805110 10.221723 12.607663  68.35545  276
+## Band30  1.4136248 6.967870 9.536025 10.932220 13.229072  76.42729  276
+## dimension(s):
+##     from to offset delta x/y
+## lon    1 78 -74.59   0.4 [x]
+## lat    1 62 -18.64   0.4 [y]
+```
+
+---
+
+# Cambiando de atributo hacia dimensión
+
+Pero no hay problema, lo podemos arreglar:
+
+Primero, cada bando fue leída como distintos atributos. Y las queremos como una sola dimensión (dimensión temporal). Para eso sirver la función `merge`.
+
+
+```r
+(s &lt;- merge(s_))
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s):
+##                                         Min.  1st Qu.   Median     Mean
+## Band1.Band2.Band3.Band4.Band5....  0.2597396 5.564454 8.109292 9.239033
+##                                     3rd Qu.     Max. NA's
+## Band1.Band2.Band3.Band4.Band5....  11.46879 243.6578 8280
+## dimension(s):
+##            from to offset delta           values x/y
+## lon           1 78 -74.59   0.4             NULL [x]
+## lat           1 62 -18.64   0.4             NULL [y]
+## attributes    1 30     NA    NA Band1,...,Band30
+```
+
+---
+
+# Cambiando la dimensión hacia modelo de fecha
+ 
+
+```r
+names(s) &lt;- "Polución"
+
+(s &lt;- st_set_dimensions(s,
+                  which = 'attributes',
+                  values = lubridate::date('2020-01-01') + 
+                    c(0:30),
+                  names = 'fechas'))
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s):
+##                Min.  1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## Polución  0.2597396 5.564454 8.109292 9.239033 11.46879 243.6578 8280
+## dimension(s):
+##        from to offset delta refsys
+## lon       1 78 -74.59   0.4     NA
+## lat       1 62 -18.64   0.4     NA
+## fechas    1 30     NA    NA   Date
+##                                                     values x/y
+## lon                                                   NULL [x]
+## lat                                                   NULL [y]
+## fechas [2020-01-01,2020-01-02),...,[2020-01-30,2020-01-31)
+```
+
+---
+
+# Guardando y cargando el cubo de forma sensilla
+
+Si pretendien seguir usando R, podrás guardar en el fomrato `rds`:
+
+
+```r
+saveRDS(s["Polución",,,], "cubo_polucion.rds")
+```
+
+---
+
+# Guardando y cargando el cubo de forma sensilla
+
+Al cargar seguimos con todo organizado:
+
+
+```r
+readRDS("cubo_polucion.rds")
+```
+
+```
+## stars object with 3 dimensions and 1 attribute
+## attribute(s):
+##                Min.  1st Qu.   Median     Mean  3rd Qu.     Max. NA's
+## Polución  0.2597396 5.564454 8.109292 9.239033 11.46879 243.6578 8280
+## dimension(s):
+##        from to offset delta refsys
+## lon       1 78 -74.59   0.4     NA
+## lat       1 62 -18.64   0.4     NA
+## fechas    1 30     NA    NA   Date
+##                                                     values x/y
+## lon                                                   NULL [x]
+## lat                                                   NULL [y]
+## fechas [2020-01-01,2020-01-02),...,[2020-01-30,2020-01-31)
+```
+
+---
+
+# 7. Para estar atento
+
+## Procesamiento "on-disk"
+
+El paquete `stars` permite realizar **procesamiento de los cubos de datos sin tenerlos cargados en la memoria**. Para eso se ocupan los objetos `stars_proxy` que contienen solamente los metadatos y apunta hacia los archivos en el disco duro.
+
+De esta manera, el procesamiento se da de forma "tardía" (*lazily*): La lectura y los procesamientos solamente son realizados en el momento en el que los pixels son realmente necesarios (Ej. en el plot o cuando se guarda el resultado en el disco).
+
+Más informacioines en [`stars_proxy`](https://r-spatial.github.io/stars/articles/stars2.html).
+
+---
+
+# Referencias y contactos 
+
+## Referencias 
+
+- [Documentación `stars`](https://r-spatial.github.io/stars)
+
+- [Libro online: Spatial Data Science](https://r-spatial.org/book/07-Introsf.html#package-stars)
+
+## contactos
+
+- [felipe.b4rros@gmail.com](felipe.b4rros@gmail.com)
+
+- [felipesbarros.github.io](https://felipesbarros.github.io)
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "rainbow",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
