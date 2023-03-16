@@ -1,8 +1,8 @@
 ---
 title: "Manejando cubo de datos ráster en R<br><br>"
 subtitle: ""
-author: "Felipe Sodré M. Barros <br>Instituto Superior Antonio Ruiz de Montoya  <br>Facultad de Ciencias Forestales de la Universidad Nacional de Misiones <br> Argentina <br><br> felipesbarros.github.io"
-date: "<br> 28/11/2022"
+author: "Felipe Sodré M. Barros <br><br><i>Instituto Superior Antonio Ruiz de Montoya</i><br><i>Facultad de Ciencias Forestales de la Universidad Nacional de Misiones<i><br>Argentina<br><br>felipesbarros.github.io"
+date: "<br>28/11/2022"
 output:
   xaringan::moon_reader:
     css: [metropolis]
@@ -226,7 +226,6 @@ El paquete `stars` permite cargar los datos a partir de dos funcciones: `read_nc
 
 ```{r}
 sf::st_crs(tseries) <- st_crs(uf)
-names(tseries) <- "ppm < 2.5"
 tseries
 ```
 
@@ -246,9 +245,9 @@ background-position: 95% 22%
 
 # 4. Cubo de datos ráster
 
-Ya que estamos trabajando con la dimensión tiempo, es más que natual necesitar seleccionar una fecha o un rango de tiempo específico.
+Ya que estamos trabajando con la dimensión tiempo, es más que natural necesitar seleccionar una fecha o un rango de fechas específicas.
 
-Lo podríamos hacer usando el índice (posición) en el cual el dato ocupa en el tiempo:
+Lo podríamos hacer usando el índice (**posición**) en el cual el dato ocupa en el tiempo:
 
 ---
 
@@ -256,11 +255,11 @@ Lo podríamos hacer usando el índice (posición) en el cual el dato ocupa en el
 
 ## 4.1 usando índices: `slice`
 
-* seleccionando los diez primeros días de 2020:
+* seleccionando los seis primeros días de 2020:
 
 ```{r}
 tseries %>% 
-  slice(index = 1:10, along = "time")
+  slice(index = 1:6, along = "time")
 ```
 
 ---
@@ -270,8 +269,7 @@ tseries %>%
 
 ```{r}
 tseries %>% 
-  slice(index = 1:10, along = "time") %>% 
-  # as("Raster") %>% 
+  slice(index = 1:6, along = "time") %>% 
   plot()
 ```
 
@@ -281,31 +279,8 @@ El `plot` de objetos de la clase `stars` tiene, por defecto, escala de color gri
 
 ```{r}
 tseries %>% 
-  slice(index = 1:10, along = "time") %>% 
+  slice(index = 1:6, along = "time") %>% 
   plot(breaks = "equal")
-```
-
----
-
-# 4. Cubo de datos ráster
-
-## 4.2 añadiendo vector al plot
-
-Me parece mejor añadirmos un poco de contexto espacial: Los límites de la Unidades de la Federación brasileña (UF).
-El paquete `stars` proveee un parâmetro en la función `plot()`, en la cual podemos pasar una función adicional (`hook`, un gancho, una cadena):
-
-```{r}
-plot_hook = function() plot(st_geometry(uf), border = 'red', add = TRUE)
-```
-
----
-
-# 4. Cubo de datos ráster
-
-```{r}
-tseries %>% 
-  slice(index = 1:10, along = "time") %>% 
-  plot(hook = plot_hook)
 ```
 
 ---
@@ -316,27 +291,15 @@ tseries %>%
 
 Hasta ahora todo bien, pero necesitamos trabajar con la información 'temporal' y no por índice. O sea, si sabemos que el período de incendios en Amazonia suele empezar en Julio y terminar en Octubre, se nos complicaria identificar en qué posición (indice) están las imágenes que necesitamos.
 
-Luego, para trabajar con las fechas, podemos usar la función `filter`.
-ej.: filtrando los datos hasta primer de Febrero:
+Para manejar los datos por fechas, podemos usar la función `filter`.
+ej.: filtrando los seis primeros días de Julio:
 
 ```{r}
 tseries %>% 
   filter(
-    time < lubridate::ymd('2020-02-01')
-    ) %>% plot(hook = plot_hook)
-```
-
----
-
-# 4. Cubo de datos ráster
-
-Filtrando para un rango de fechas:
-
-```{r}
-tseries %>% filter(
-  time >= lubridate::ymd('2020-07-01'),
-  time < lubridate::ymd('2020-11-01')
-  ) %>% plot(hook = plot_hook)
+    time >= lubridate::ymd('2020-07-01'),
+    time <= lubridate::ymd('2020-07-06')
+    )
 ```
 
 ---
@@ -345,14 +308,13 @@ tseries %>% filter(
 
 ## 4.4 "estadísticas" relacionadas a la dimensión tiemporal: `aggregate`
 
-Supongamos que necesitamos saber el valor promedio de polución a cada semana (siete días) para un rango de fecha. Para eso usados la función  `aggregate`;
+Necesitamos saber el valor promedio de polución a cada semana (siete días) para un rango de fecha. Para eso usamos la función  `aggregate`;
 
 ```{r}
 tseries %>% filter(
   time >= lubridate::ymd('2020-07-01'),
   time < lubridate::ymd('2020-11-01')
-  ) %>% aggregate(by = "7 days", FUN = mean) %>%
-  plot(hook=plot_hook)
+  ) %>% aggregate(by = "7 days", FUN = mean)
 ```
 
 ---
@@ -402,7 +364,7 @@ Y se maneja igual...
 ```{r}
 datos_agregados_uf %>% filter(
   time >= lubridate::ymd('2020-07-01'),
-  time < lubridate::ymd('2020-11-01')
+  time < lubridate::ymd('2020-12-01')
   ) %>% aggregate(by = "1 months", FUN = mean)
 ```
 
@@ -415,9 +377,8 @@ Y se maneja igual II...
 ```{r, eval=FALSE}
 datos_agregados_uf %>% filter(
   time >= lubridate::ymd('2020-07-01'),
-  time < lubridate::ymd('2020-11-01')
-  ) %>% aggregate(by = "1 months", FUN = mean) %>% 
-  plot(breaks='equal')
+  time < lubridate::ymd('2020-12-01')
+  ) %>% plot()
 ```
 
 ---
@@ -477,73 +438,6 @@ st_get_dimension_values(s, 'fechas')
 
 ---
 
-# manejando el cubo "más bajo nível"
-
-El cubo está estructurado en una estructura n-dimenciónal de `array`;
-Por eso se puede manejarlos usando el operador `objeto[, , ,]`, de forma que:
-* el primer elemento correnponde al atributo;
-* el segundo argumento corresponde a la primera dimensión
-* el tercer argumento corresponde a la segunda dimensión, etc
-
-```{r}
-s['Polución', , , 1:7 ]
-```
-
----
-
-# Guardando el dato
-
-Aunque desafortunadamente el paquete `stars` no estés todavía listo para almacenar los metadatos de manera consistente, no nos empide de usarlo para guardar el cubo de dato en formato `NetCDF`:
-
-```{r}
-write_stars(s["Polución",,,], #adrop(s[1]),
-            "./cubo_polucion.nc",
-            overwrite=TRUE, 
-            driver='netCDF',
-            )
-```
-
----
-
-# Cargando el dato
-
-Es justamente al cargar el dato guardado por el paquete `stars` que vemos que los metadatos se pirden:
-
-```{r}
-(s_ = stars::read_ncdf(.x = './cubo_polucion.nc', 
-          make_time = TRUE
-          ))
-```
-
----
-
-# Cambiando de atributo hacia dimensión
-
-Pero no hay problema, lo podemos arreglar:
-
-Primero, cada bando fue leída como distintos atributos. Y las queremos como una sola dimensión (dimensión temporal). Para eso sirver la función `merge`.
-
-```{r}
-(s <- merge(s_))
-```
-
----
-
-# Cambiando la dimensión hacia modelo de fecha
- 
-```{r}
-names(s) <- "Polución"
-
-(s <- st_set_dimensions(s,
-                  which = 'attributes',
-                  values = lubridate::date('2020-01-01') + 
-                    c(0:30),
-                  names = 'fechas'))
-
-```
-
----
-
 # Guardando y cargando el cubo de forma sensilla
 
 Si pretendien seguir usando R, podrás guardar en el fomrato `rds`:
@@ -556,7 +450,7 @@ saveRDS(s["Polución",,,], "cubo_polucion.rds")
 
 # Guardando y cargando el cubo de forma sensilla
 
-Al cargar seguimos con todo organizado:
+Para cargar al nuestro proyecto R, usamos la función `readRDS`:
 
 ```{r}
 readRDS("cubo_polucion.rds")
@@ -589,3 +483,4 @@ Más informacioines en [`stars_proxy`](https://r-spatial.github.io/stars/article
 - [felipe.b4rros@gmail.com](felipe.b4rros@gmail.com)
 
 - [felipesbarros.github.io](https://felipesbarros.github.io)
+
