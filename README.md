@@ -4,7 +4,7 @@ Proyecto producido por [Felipe Sodré Mendes Barros](https://felipesbarros.githu
 
 ## Intituciones
 
-<img src="./img/fcf.png" width=50%> <img src="./img/TUSIGyT.jpeg" width="200" height="100"> <img src="./img/HSDLabLogo.png" width="200" height="100"> <img src="./img/GEOLibero.png" width="200" height="100">
+<img src="./img/fcf.png" width=25%> <img src="./img/TUSIGyT.jpeg" width=50%> <img src="./img/HSDLabLogo.png" width=50%> <img src="./img/GEOLibero.png" width=50%>
 
 ## Presentaciones
 El presente taller ya fue presentado en:
